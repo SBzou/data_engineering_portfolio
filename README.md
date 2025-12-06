@@ -379,6 +379,6 @@ erDiagram
     Orders_Enriched ||--o{ Customer_Revenue : "customer_id"
     Orders_Enriched ||--o{ Product_Sales : "product_id"
     Orders_Enriched ||--o{ Category_Revenue : "category"
-   ``
+   ````
 
 ----------
