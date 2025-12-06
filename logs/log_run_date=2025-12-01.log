@@ -1,0 +1,31 @@
+2025-12-06 12:48:07,294 | INFO | __main__ | 🏁 Starting pipeline with RUN_DATE=2025-12-01, VERBOSE=False
+2025-12-06 12:48:07,294 | INFO | __main__ | 🚀 Running src.scripts.step1_raw_data_generation
+2025-12-06 12:48:07,420 | INFO | src.scripts.step1_raw_data_generation | ✅ Local Parquet files generated successfully.
+2025-12-06 12:48:07,420 | INFO | __main__ | ✅ Completed src.scripts.step1_raw_data_generation
+2025-12-06 12:48:07,420 | INFO | __main__ | 🚀 Running src.scripts.step2_gcs_ingestion
+2025-12-06 12:48:08,582 | INFO | src.scripts.step2_gcs_ingestion | ✅ Uploaded : gs://data-engineering-portfolio-bucket/raw/customers/run_date=2025-12-01/customers.parquet
+2025-12-06 12:48:08,717 | INFO | src.scripts.step2_gcs_ingestion | ✅ Uploaded : gs://data-engineering-portfolio-bucket/raw/products/run_date=2025-12-01/products.parquet
+2025-12-06 12:48:08,833 | INFO | src.scripts.step2_gcs_ingestion | ✅ Uploaded : gs://data-engineering-portfolio-bucket/raw/orders/run_date=2025-12-01/orders.parquet
+2025-12-06 12:48:08,951 | INFO | src.scripts.step2_gcs_ingestion | ✅ Uploaded : gs://data-engineering-portfolio-bucket/raw/payments/run_date=2025-12-01/payments.parquet
+2025-12-06 12:48:08,951 | INFO | __main__ | ✅ Completed src.scripts.step2_gcs_ingestion
+2025-12-06 12:48:08,952 | INFO | __main__ | 🚀 Running src.scripts.step3_spark_processing
+2025-12-06 12:48:19,489 | INFO | src.scripts.step3_spark_processing | ✅ Raw Parquet files loaded from GCS
+2025-12-06 12:48:20,435 | INFO | src.scripts.step3_spark_processing | ✅ Spark aggregations complete
+2025-12-06 12:48:27,402 | INFO | src.scripts.step3_spark_processing | ✅ Saved orders_enriched → gs://data-engineering-portfolio-bucket/processed/orders_enriched/run_date=2025-12-01/
+2025-12-06 12:48:32,630 | INFO | src.scripts.step3_spark_processing | ✅ Saved customers_revenue → gs://data-engineering-portfolio-bucket/processed/customers_revenue/run_date=2025-12-01/
+2025-12-06 12:48:36,236 | INFO | src.scripts.step3_spark_processing | ✅ Saved products_sales → gs://data-engineering-portfolio-bucket/processed/products_sales/run_date=2025-12-01/
+2025-12-06 12:48:39,679 | INFO | src.scripts.step3_spark_processing | ✅ Saved category_revenue → gs://data-engineering-portfolio-bucket/processed/category_revenue/run_date=2025-12-01/
+2025-12-06 12:48:42,940 | INFO | src.scripts.step3_spark_processing | ✅ Saved payments_summary → gs://data-engineering-portfolio-bucket/processed/payments_summary/run_date=2025-12-01/
+2025-12-06 12:48:42,941 | INFO | src.scripts.step3_spark_processing | ✅ All processed Parquet files saved successfully.
+2025-12-06 12:48:42,941 | INFO | __main__ | ✅ Completed src.scripts.step3_spark_processing
+2025-12-06 12:48:42,942 | INFO | __main__ | 🚀 Running src.scripts.step4_bigquery_loading
+2025-12-06 12:48:45,906 | INFO | src.scripts.step4_bigquery_loading | ✅ Loaded orders_enriched into BigQuery
+2025-12-06 12:48:47,509 | INFO | src.scripts.step4_bigquery_loading | ✅ Loaded customers_revenue into BigQuery
+2025-12-06 12:48:49,243 | INFO | src.scripts.step4_bigquery_loading | ✅ Loaded products_sales into BigQuery
+2025-12-06 12:48:51,306 | INFO | src.scripts.step4_bigquery_loading | ✅ Loaded category_revenue into BigQuery
+2025-12-06 12:48:54,749 | INFO | src.scripts.step4_bigquery_loading | ✅ Loaded payments_summary into BigQuery
+2025-12-06 12:48:56,280 | INFO | src.scripts.step4_bigquery_loading | ✅ Clean table created: category_revenue_clean
+2025-12-06 12:48:56,281 | INFO | __main__ | ✅ Completed src.scripts.step4_bigquery_loading
+2025-12-06 12:48:56,281 | INFO | __main__ | 🚀 Running src.scripts.step5_bigquery_validation
+2025-12-06 12:49:00,651 | INFO | src.scripts.step5_bigquery_validation | ✅ All BigQuery Data Validation passed
+2025-12-06 12:49:00,651 | INFO | __main__ | ✅ Completed src.scripts.step5_bigquery_validation
