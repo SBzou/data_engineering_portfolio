@@ -1,4 +1,4 @@
-# 🚀 Data Engineering Portfolio — Cloud Pipeline (Python, SQL, GCP, Spark, Airflow, Power BI)
+# 🚀 Data Engineering Portfolio — Pipeline Cloud (Python, SQL, GCP, BigQuery, Spark, Airflow, Docker, Power BI)
 
 ## Sommaire
 
@@ -7,16 +7,14 @@
 - [🏗️ Structure du Projet](#🏗️-structure-du-projet)
 - [🧱 Pipeline Step-by-Step](#🧱-pipeline-step-by-step)
 - [📓 Notebook d’Exploration](#📓-notebook-dexploration)
-- [⚙️ Orchestration](#⚙️-orchestration)
+- [⚙️ Orchestration (4 modes)](#⚙️-orchestration-4-modes)
 - [🔧 Technologies Utilisées](#🔧-technologies-utilisées)
 - [🔐 Variables de configuration](#🔐-variables-de-configuration)
 - [📊 Schémas de données](#📊-schémas-de-données)
 
-
 ## 📌 Présentation
 
 Ce projet constitue un **pipeline data complet**, entièrement conçu pour démontrer des compétences professionnelles en **Data Engineering**, incluant :
-
 -   Génération de données brutes factices (Faker)
 -   Stockage local en Parquet puis Upload vers **Google Cloud Storage (GCS)**
 -   Traitement analytique distribué avec **Apache Spark**
@@ -104,6 +102,8 @@ data_engineering_portfolio/
 │   └── utils/
 │       └── utils_bq.py
 │
+├── Dockerfile
+├── requirements.txt
 └── README.md` 
 ```
 ----------
@@ -124,6 +124,7 @@ Chaque fichier est stocké dans :
 `data/raw/<table_name>/run_date=YYYY-MM-DD/<table_name>.parquet` 
 > Les données sont réalistes et cohérentes (Faker + règles métier).
 ----------
+
 ### 2️⃣ Upload vers Google Cloud Storage
 
 Script : `step2_gcs_ingestion.py`
@@ -153,9 +154,8 @@ Toutes les sorties sont écrites vers :
 
 Script : `step4_bigquery_loading.py`
 
-Dataset créé automatiquement : `processed_data` 
-
-Un nettoyage automatique est appliqué pour corriger le schéma de `category_revenue`.
+- Dataset créé automatiquement : `processed_data` 
+- Un nettoyage automatique est appliqué pour corriger le schéma de `category_revenue`.
 
 ----------
 
@@ -164,7 +164,6 @@ Un nettoyage automatique est appliqué pour corriger le schéma de `category_rev
 Script : `step5_bigquery_validation.py`
 
 Cette étape permet de **vérifier la qualité et la cohérence des données** après chargement :
-
 -   **Contrôles de complétude** : nombre de lignes et présence des colonnes clés pour chaque table
 -   **Contrôles de cohérence** :
     -   Vérification que `category_revenue` correspond bien à la somme des ventes des produits par catégorie
@@ -181,13 +180,11 @@ Cette étape permet d’éviter que des données incorrectes soient exploitées 
 📁 `dashboard/portfolio_static.pbix`
 
 Le rapport Power BI est un **dashboard statique** :  
-
 - Les données ont été importées depuis BigQuery au moment de la génération du PBIX.  
 - Le fichier n’est **plus connecté à BigQuery**, aucun credential n’est nécessaire pour l’ouvrir.  
 - Cela permet de partager le rapport sans risque d’accès non autorisé aux données et **sans générer de coûts supplémentaires** sur BigQuery.  
 
 Le rapport présente différentes visualisations :
-
 - CA total par client
 - Répartition des ventes par catégorie
 - Analyse produit : quantité vendue et revenu
@@ -209,9 +206,42 @@ Le fichier `src/notebook/exploration.ipynb` permet :
 
 Ce notebook sert d’espace d’expérimentation avant l’implémentation dans le pipeline.
 
-## ⚙️ Orchestration
+## ⚙️ Orchestration **(4 modes → CLI → Docker → Cloud Run → Airflow)**
 
-### ▶️ Mode “local orchestré”
+**Même pipeline, 4 environnements** :
+
+| Mode | Commande | Avantage | Temps | Coût |
+|------|----------|----------|-------|------|
+| **1. Local CLI** | `python -m src.scripts.main` | **Dev rapide** | **30s** | 0€ |
+| **2. Docker** | `docker run ...` | **Reproductible** | **2min** | 0€ |
+| **3. Cloud Run** | `gcloud run jobs execute` | **Serverless** | **5min** | **0.01€** |
+| **4. Airflow** | `src/dag/data_pipeline_dag.py` | **Production** | Variable | Variable |
+
+
+### 🧩 Paramètres disponibles
+
+- **`--run_date YYYY-MM-DD`**
+	-   Définit la date d'exécution logique du pipeline.
+	-   Si non fournie, la valeur par défaut provient de `constants.py`.
+	- **Exemple :** `python -m src.scripts.main --run_date 2026-01-01` 
+- **`--verbose`**
+	-   Active un mode détaillé d’affichage dans la console.
+	-   Utile pour le debug local.
+	- **Exemple :** `python -m src.scripts.main --verbose`
+
+```bash
+# CLI : arguments
+python -m src.scripts.main --run_date 2026-01-01 --verbose
+
+# Docker : env vars
+docker run ... -e RUN_DATE=2026-01-01 -e VERBOSE=true
+
+# Cloud Run : override
+gcloud run jobs execute ... --update-env-vars="RUN_DATE=2026-01-01,VERBOSE=true"
+```
+----------
+
+### 1️⃣ Local CLI
 
 Une fois placé dans la racine du projet, le lancement du pipeline complet se fait via la commande :
 `python -m src.scripts.main` 
@@ -223,27 +253,40 @@ Cela exécute successivement :
 4. `step4_bigquery_loading.py`,
 5. `step5_bigquery_validation.py`
 
+**Exemple complet :** 
+```bash
+python -m src.scripts.main --run_date 2026-01-01 --verbose
+```
 ----------
 
-### 🧩 Paramètres disponibles
-
-Le script `main.py` accepte deux arguments permettant de contrôler l’exécution du pipeline :
-
-- **`--run_date YYYY-MM-DD`**
-	-   Définit la date d'exécution logique du pipeline.
-	-   Si non fournie, la valeur par défaut provient de `constants.py`.
-	- **Exemple :** `python -m src.scripts.main --run_date 2025-12-01` 
-
-- **`--verbose`**
-	-   Active un mode détaillé d’affichage dans la console.
-	-   Utile pour le debug local.
-	- **Exemple :** `python -m src.scripts.main --verbose`
-
-**Exemple complet :** `python -m src.scripts.main --run_date 2025-12-01 --verbose`
-
+### 2️⃣ Docker
+```bash
+docker build -t data-engineering-portfolio .
+docker run --rm \
+  -e GOOGLE_APPLICATION_CREDENTIALS=/app/keys/service_account.json \
+  -e RUN_DATE=2026-01-01 -e VERBOSE=true \
+  -v $(pwd)/keys:/app/keys \
+  data-engineering-portfolio
+```
 ----------
 
-### 🌀 Mode “Airflow” (optionnel)
+### 3️⃣ Cloud Run Jobs
+```bash
+# Créer (1x)
+gcloud run jobs create data-engineering-pipeline-job \
+  --image europe-west9-docker.pkg.dev/data-portfolio-sami/data-portfolio-repo/data-engineering-portfolio:latest \
+  --region=europe-west9 \
+  --set-env-vars="GCS_BUCKET_NAME=data-engineering-portfolio-bucket,BQ_DATASET_NAME=processed_data" \
+  --memory=4Gi --cpu=2 --task-timeout=1800s
+
+# Exécuter (N fois)
+gcloud run jobs execute data-engineering-pipeline-job \
+  --region=europe-west9 \
+  --update-env-vars="RUN_DATE=2026-01-01,VERBOSE=true"
+```
+----------
+
+### 4️⃣ Airflow
 
 Un DAG Airflow est proposé dans :
 `src/dag/data_pipeline_dag.py` 
@@ -252,15 +295,25 @@ Il reproduit exactement les 5 étapes du pipeline.
 
 ----------
 
+### ⚡ Retour d'expérience & Debug
+
+- 💥 **Out Of Memory Spark** : lors de la première exécution, le job Spark a planté sur Cloud Run car la mémoire par défaut (512 Mi) était trop faible. Ce problème a été résolu en passant le job à `--memory=4Gi --cpu=2`.
+- ⏱️ **Cold start** : le démarrage initial (download image + lancement de Spark) prend plusieurs dizaines de secondes, ce qui est normal en environnement serverless.
+- ✅ **Logs centralisés** : toutes les étapes du pipeline (step1 à step5) sont visibles en temps réel dans la console Cloud Run Jobs de GCP. Le pipeline est observable et déboguable depuis le cloud
+- ✅ **12-Factor App** : même code exécuté dans 4 environnements (CLI local, Docker, Cloud Run Jobs, Airflow), uniquement configuré via arguments CLI et variables d’environnement.
+
+----------
+
 ## 🔧 Technologies Utilisées
 
 | Domaine        | Choix Techniques |
 |----------------|------------------|
 | **Langage**    | Python (Faker, pandas, pathlib) et SQL |
-| **Cloud**      | Google Cloud Storage, BigQuery |
+| **Cloud**      | Google Cloud Storage, BigQuery, Cloud Run Jobs, Artifact Registry |
+| **Conteneur** | Docker |
 | **Traitement** | Apache Spark + GCS Connector |
 | **Visualisation** | Power BI |
-| **Orchestration** | Python CLI, Airflow (optionnel) |
+| **Orchestration** | CLI, Docker, Cloud Run Jobs, Airflow |
 | **Format** | Parquet (optimisé pour analyse) |
 
 ----------
@@ -278,6 +331,7 @@ Le fichier `src/config/constants.py` contient :
 > ⚠️ La clé de service est stockée dans `/keys/` mais **ignorée par Git** pour des raisons de sécurité.
 
 ----------
+
 ## 📊 Schémas de données 
 
 ### GCS (raw)

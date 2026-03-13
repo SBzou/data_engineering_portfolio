@@ -1,4 +1,4 @@
-# 🚀 Data Engineering Portfolio — Cloud Pipeline (Python, SQL, GCP, Spark, Airflow, Power BI)
+# 🚀 Data Engineering Portfolio — Cloud Pipeline (Python, SQL, GCP, BigQuery, Spark, Airflow, Docker, Power BI)
 
 ## Table of Contents
 
@@ -7,7 +7,7 @@
 - [🏗️ Project Structure](#🏗️-project-structure)
 - [🧱 Pipeline Step-by-Step](#🧱-pipeline-step-by-step)
 - [📓 Exploration Notebook](#📓-exploration-notebook)
-- [⚙️ Orchestration](#⚙️-orchestration)
+- [⚙️ Orchestration (4 modes)](#⚙️-orchestration-4-modes)
 - [🔧 Technologies Used](#🔧-technologies-used)
 - [🔐 Configuration Variables](#🔐-configuration-variables)
 - [📊 Data Schemas](#📊-data-schemas)
@@ -102,10 +102,11 @@ data_engineering_portfolio/
 │   └── utils/
 │       └── utils_bq.py
 │
+├── Dockerfile
+├── requirements.txt
 └── README.md` 
 ```
 ----------
-
 
 ## 🧱 Pipeline Step-by-Step
 
@@ -122,7 +123,6 @@ Generates 4 Parquet tables (one folder per table, one subfolder per date):
 Each file is stored at:  
 `data/raw/<table_name>/run_date=YYYY-MM-DD/<table_name>.parquet`
 > Data is realistic and consistent (Faker + business rules).
-
 ----------
 
 ### 2️⃣ Upload to Google Cloud Storage
@@ -133,7 +133,6 @@ Uploads generated files to GCS, using the bucket defined in `constants.py`:
 `gs://<bucket>/raw/<table_name>/run_date=YYYY-MM-DD/*.parquet`
 
 ----------
-
 
 ### 3️⃣ Processing with Apache Spark
 
@@ -151,7 +150,6 @@ All outputs are written to:
 
 ----------
 
-
 ### 4️⃣ Load into BigQuery
 
 Script: `step4_bigquery_loading.py`
@@ -160,7 +158,6 @@ Script: `step4_bigquery_loading.py`
 -   Corrects `category_revenue` schema automatically
 
 ----------
-
 
 ### 5️⃣ Data Validation in BigQuery
 
@@ -177,7 +174,6 @@ Validates data quality and consistency:
 Ensures visualizations and analyses use correct data.
 
 ----------
-
 
 ### 6️⃣ Power BI Visualization
 
@@ -210,7 +206,40 @@ Visualizations include:
 
 Serves as a sandbox before pipeline implementation.
 
-## ⚙️ Orchestration
+## ⚙️ Orchestration **(4 Modes: CLI → Docker → Cloud Run → Airflow)**
+
+**Same pipeline, 4 deployment environments**:
+
+| Mode | Command | Advantage | Time | Cost |
+|------|---------|-----------|------|------|
+| **1. Local CLI** | `python -m src.scripts.main` | **Fast dev** | **30s** | $0 |
+| **2. Docker** | `docker run ...` | **Reproducible** | **2min** | $0 |
+| **3. Cloud Run** | `gcloud run jobs execute` | **Serverless** | **5min** | **$0.01** |
+| **4. Airflow** | `src/dag/data_pipeline_dag.py` | **Production** | Variable | Variable |
+
+
+### 🧩 Available Parameters
+
+-   **`--run_date YYYY-MM-DD`**
+	-   Sets logical execution date of the pipeline
+    -   Defaults to `constants.py` if not provided
+    - **Example :** `python -m src.scripts.main --run_date 2026-01-01` 
+- **`--verbose`**
+	-   Enables detailed console output
+	-   Useful for local debugging
+	- **Example :** `python -m src.scripts.main --verbose`
+
+```bash
+# CLI: arguments
+python -m src.scripts.main --run_date 2026-01-01 --verbose
+
+# Docker: env vars
+docker run ... -e RUN_DATE=2026-01-01 -e VERBOSE=true
+
+# Cloud Run: override
+gcloud run jobs execute ... --update-env-vars="RUN_DATE=2026-01-01,VERBOSE=true"
+```
+----------
 
 ### ▶️ Local Orchestrated Mode
 
@@ -224,27 +253,40 @@ Executes in order:
 4. `step4_bigquery_loading.py`,
 5. `step5_bigquery_validation.py`
 
+**Complete example:**
+```bash
+python -m src.scripts.main --run_date 2026-01-01 --verbose
+```
 ----------
 
-
-### 🧩 Available Parameters
-
-`main.py` accepts two optional CLI arguments:
-
--   **`--run_date YYYY-MM-DD`**
-	-   Sets logical execution date of the pipeline
-    -   Defaults to `constants.py` if not provided
-    - **Example :** `python -m src.scripts.main --run_date 2025-12-01` 
-- **`--verbose`**
-	-   Enables detailed console output
-	-   Useful for local debugging
-	- **Example :** `python -m src.scripts.main --verbose`
-
-**Full example:** `python -m src.scripts.main --run_date 2025-12-01 --verbose`
-
+### 2️⃣ Docker
+```bash
+docker build -t data-engineering-portfolio .
+docker run --rm \
+  -e GOOGLE_APPLICATION_CREDENTIALS=/app/keys/service_account.json \
+  -e RUN_DATE=2026-01-01 -e VERBOSE=true \
+  -v $(pwd)/keys:/app/keys \
+  data-engineering-portfolio
+```
 ----------
 
-### 🌀 Airflow Mode (optional)
+### 3️⃣ Cloud Run Jobs
+```bash
+# Create (1x)
+gcloud run jobs create data-engineering-pipeline-job \
+  --image europe-west9-docker.pkg.dev/data-portfolio-sami/data-portfolio-repo/data-engineering-portfolio:latest \
+  --region=europe-west9 \
+  --set-env-vars="GCS_BUCKET_NAME=data-engineering-portfolio-bucket,BQ_DATASET_NAME=processed_data" \
+  --memory=4Gi --cpu=2 --task-timeout=1800s
+
+# Execute (N times)
+gcloud run jobs execute data-engineering-pipeline-job \
+  --region=europe-west9 \
+  --update-env-vars="RUN_DATE=2026-01-01,VERBOSE=true"
+```
+----------
+
+### 4️⃣ Airflow
 
 DAG available at:  
 `src/dag/data_pipeline_dag.py`  
@@ -253,18 +295,29 @@ Executes exactly the same 5 pipeline steps.
 
 ----------
 
+### ⚡ Real-World Experience & Debugging
+
+- 💥 Spark Out Of Memory: First Cloud Run execution crashed due to default 512Mi RAM being insufficient. Fixed: --memory=4Gi --cpu=2
+- ⏱️ Cold Start: Initial container startup (image download + Spark boot) takes 30-60s — normal for serverless
+- ✅ Live Logs: All pipeline steps (step1→step5) visible in real-time via Cloud Run Jobs console
+- ✅ 12-Factor App: Same codebase runs across 4 environments (Local CLI, Docker, Cloud Run Jobs, Airflow) — configured only via CLI args and environment variables
+
+----------
+
 ## 🔧 Technologies Utilisées
 
 | Domain        | Tools / Libraries |
 |----------------|------------------|
 | **Language**    | Python (Faker, pandas, pathlib) and SQL |
-| **Cloud**      | Google Cloud Storage, BigQuery |
+| **Cloud**      | Google Cloud Storage, BigQuery, Cloud Run Jobs, Artifact Registry |
+| **Conteneur** | Docker |
 | **Processing** | Apache Spark + GCS Connector |
 | **Visualization** | Power BI |
-| **Orchestration** | Python CLI, Airflow (optional) |
+| **Orchestration** | CLI, Docker, Cloud Run Jobs, Airflow |
 | **Format** | Parquet (optimized for analytics) |
 
 ----------
+
 ## 🔐 Configuration Variables
 
 `src/config/constants.py` contains:
